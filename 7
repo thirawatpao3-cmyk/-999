@@ -1,0 +1,176 @@
+-- สร้าง UI หน้าต่างเปลี่ยนเพลง Tool (เวอร์ชันคลีน ไม่มีปุ่มเคลียร์)
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+if playerGui:FindFirstChild("ToolMusicUI_Custom") then
+    playerGui.ToolMusicUI_Custom:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToolMusicUI_Custom"
+screenGui.Parent = playerGui
+
+-- กรอบหลัก (ปรับความสูงให้เหมาะสม)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 260, 0, 215)
+frame.Position = UDim2.new(0.5, -130, 0.4, -107)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 3
+stroke.Parent = frame
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "🎵 กันเจาะเปาสุดหล่อ (Pro)"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 14
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+-- ช่องใส่ ID เพลง (ขยายความกว้างเต็มพื้นที่เพราะไม่มีปุ่ม X แล้ว)
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0, 220, 0, 35)
+textBox.Position = UDim2.new(0.5, -110, 0, 40)
+textBox.Text = "ช่องใส่เพลง"
+textBox.TextColor3 = Color3.fromRGB(150, 150, 150)
+textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+textBox.TextSize = 14
+textBox.Font = Enum.Font.Gotham
+textBox.Parent = frame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = textBox
+
+textBox.Focused:Connect(function()
+    if textBox.Text == "ช่องใส่เพลง" then
+        textBox.Text = ""
+        textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+textBox.FocusLost:Connect(function()
+    if textBox.Text == "" then
+        textBox.Text = "ช่องใส่เพลง"
+        textBox.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+end)
+
+-- ป้ายข้อความแสดงชื่อเพลง
+local songNameLabel = Instance.new("TextLabel")
+songNameLabel.Size = UDim2.new(0, 220, 0, 25)
+songNameLabel.Position = UDim2.new(0.5, -110, 0, 80)
+songNameLabel.BackgroundTransparency = 1
+songNameLabel.Text = "🎶 กำลังเล่น: -"
+songNameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+songNameLabel.TextSize = 12
+songNameLabel.Font = Enum.Font.Gotham
+songNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+songNameLabel.Parent = frame
+
+-- ปุ่มสลับ เปิด / หยุด เพลง
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 220, 0, 35)
+button.Position = UDim2.new(0.5, -110, 0, 115)
+button.Text = "เปิด"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+button.TextSize = 14
+button.Font = Enum.Font.GothamBold
+button.Parent = frame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = button
+
+-- ส่วนประวัติเพลง (เต็มความกว้าง)
+local presetTitle = Instance.new("TextLabel")
+presetTitle.Size = UDim2.new(0, 220, 0, 20)
+presetTitle.Position = UDim2.new(0.5, -110, 0, 155)
+presetTitle.BackgroundTransparency = 1
+presetTitle.Text = "⭐ ประวัติ / เพลงล่าสุด:"
+presetTitle.TextColor3 = Color3.fromRGB(170, 170, 170)
+presetTitle.TextSize = 11
+presetTitle.Font = Enum.Font.Gotham
+presetTitle.Parent = frame
+
+local historyBtn = Instance.new("TextButton")
+historyBtn.Size = UDim2.new(0, 220, 0, 25)
+historyBtn.Position = UDim2.new(0.5, -110, 0, 178)
+historyBtn.Text = "ยังไม่มีประวัติเพลง"
+historyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+historyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+historyBtn.TextSize = 11
+historyBtn.Font = Enum.Font.Gotham
+historyBtn.TextTruncate = Enum.TextTruncate.AtEnd
+historyBtn.Parent = frame
+
+local historyCorner = Instance.new("UICorner")
+historyCorner.CornerRadius = UDim.new(0, 6)
+historyCorner.Parent = historyBtn
+
+-- ปุ่ม Toggle
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 60, 0, 60)
+toggleBtn.Position = UDim2.new(0, 50, 0, 50)
+toggleBtn.Text = ""
+toggleBtn.Active = true
+toggleBtn.Draggable = true
+toggleBtn.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleBtn
+
+-- ระบบ Logics
+local MarketplaceService = game:GetService("MarketplaceService")
+local isPlaying = false
+local lastSongId = ""
+
+button.MouseButton1Click:Connect(function()
+    local songId = textBox.Text:gsub("%s+", "")
+    if songId ~= "" and songId ~= "ช่องใส่เพลง" then
+        if not isPlaying then
+            isPlaying = true
+            button.Text = "หยุด"
+            lastSongId = songId
+            historyBtn.Text = "ID: " .. songId
+            
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("PlayerToolEvent"):FireServer("ToolMusicText", songId, true)
+            end)
+            
+            local numericId = tonumber(songId)
+            if numericId then
+                task.spawn(function()
+                    local success, info = pcall(function() return MarketplaceService:GetProductInfo(numericId) end)
+                    if success and info and info.Name then songNameLabel.Text = "🎶 กำลังเล่น: " .. info.Name else songNameLabel.Text = "🎶 กำลังเล่น: ส่งไอดีสำเร็จ" end
+                end)
+            end
+        else
+            isPlaying = false
+            button.Text = "เปิด"
+            songNameLabel.Text = "🎶 กำลังเล่น: -"
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("PlayerToolEvent"):FireServer("ToolMusicText", "", true)
+            end)
+        end
+    end
+end)
+
+historyBtn.MouseButton1Click:Connect(function()
+    if lastSongId ~= "" then
+        textBox.Text = lastSongId
+        textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
