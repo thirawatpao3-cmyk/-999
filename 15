@@ -1,0 +1,618 @@
+--[[
+    🎵 Music Tool Macro Bot (Pro Edition)
+    สคริปต์ UI ควบคุมเพลงแบบครบวงจรสำหรับ Roblox
+    ฟีเจอร์: Playlist, Loop, Shuffle, Volume, History, Preset, Mini Player
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ========== ตั้งค่า ==========
+local CONFIG = {
+    UI_SIZE = UDim2.new(0, 320, 0, 420),
+    UI_POS = UDim2.new(0.5, -160, 0.5, -210),
+    THEME = {
+        BG = Color3.fromRGB(25, 25, 30),
+        ACCENT = Color3.fromRGB(88, 101, 242), -- Discord Blue
+        ACCENT_HOVER = Color3.fromRGB(108, 121, 255),
+        SECONDARY = Color3.fromRGB(45, 45, 55),
+        TEXT = Color3.fromRGB(255, 255, 255),
+        TEXT_DIM = Color3.fromRGB(150, 150, 150),
+        SUCCESS = Color3.fromRGB(87, 242, 135),
+        DANGER = Color3.fromRGB(242, 87, 87),
+        WARNING = Color3.fromRGB(255, 200, 87)
+    },
+    TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+}
+
+-- ========== ล้าง UI เก่า ==========
+if playerGui:FindFirstChild("MusicMacroBot") then
+    playerGui.MusicMacroBot:Destroy()
+end
+
+-- ========== สร้าง ScreenGui ==========
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MusicMacroBot"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- ========== ระบบข้อมูล ==========
+local Data = {
+    playlist = {}, -- { {id = "123", name = "Song Name"}, ... }
+    history = {},  -- { {id = "123", name = "Song Name", time = "12:34"}, ... }
+    favorites = {}, -- {id = true, ...}
+    isPlaying = false,
+    isLooping = false,
+    isShuffling = false,
+    volume = 1,
+    currentSong = nil,
+    currentIndex = 0
+}
+
+-- ========== Helper Functions ==========
+local function createCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = parent
+    return corner
+end
+
+local function createStroke(parent, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or CONFIG.THEME.ACCENT
+    stroke.Thickness = thickness or 1
+    stroke.Parent = parent
+    return stroke
+end
+
+local function tween(obj, props, duration)
+    local info = TweenInfo.new(duration or 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(obj, info, props):Play()
+end
+
+local function formatTime()
+    local t = os.date("*t")
+    return string.format("%02d:%02d", t.hour, t.min)
+end
+
+local function getSongName(songId, callback)
+    local numericId = tonumber(songId)
+    if not numericId then
+        callback("Unknown Song")
+        return
+    end
+    task.spawn(function()
+        local success, info = pcall(function()
+            return MarketplaceService:GetProductInfo(numericId)
+        end)
+        if success and info and info.Name then
+            callback(info.Name)
+        else
+            callback("ID: " .. songId)
+        end
+    end)
+end
+
+local function sendToolEvent(songId)
+    pcall(function()
+        local re = ReplicatedStorage:WaitForChild("RE", 5)
+        local event = re:WaitForChild("PlayerToolEvent", 5)
+        event:FireServer("ToolMusicText", songId or "", true)
+    end)
+end
+
+-- ========== สร้าง UI หลัก ==========
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = CONFIG.UI_SIZE
+mainFrame.Position = CONFIG.UI_POS
+mainFrame.BackgroundColor3 = CONFIG.THEME.BG
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+createCorner(mainFrame, 12)
+createStroke(mainFrame, CONFIG.THEME.ACCENT, 2)
+
+-- Shadow
+local shadow = Instance.new("ImageLabel")
+shadow.Name = "Shadow"
+shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+shadow.BackgroundTransparency = 1
+shadow.Position = UDim2.new(0.5, 0, 0.5, 4)
+shadow.Size = UDim2.new(1, 30, 1, 30)
+shadow.ZIndex = -1
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.6
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+shadow.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = CONFIG.THEME.SECONDARY
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+createCorner(titleBar, 12)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -80, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🎵 Music Macro Bot"
+titleLabel.TextColor3 = CONFIG.THEME.TEXT
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Minimize Button
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 30, 0, 30)
+minBtn.Position = UDim2.new(1, -70, 0.5, -15)
+minBtn.BackgroundColor3 = CONFIG.THEME.WARNING
+minBtn.Text = "−"
+minBtn.TextColor3 = CONFIG.THEME.TEXT
+minBtn.TextSize = 18
+minBtn.Font = Enum.Font.GothamBold
+minBtn.Parent = titleBar
+createCorner(minBtn, 6)
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0.5, -15)
+closeBtn.BackgroundColor3 = CONFIG.THEME.DANGER
+closeBtn.Text = "×"
+closeBtn.TextColor3 = CONFIG.THEME.TEXT
+closeBtn.TextSize = 18
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = titleBar
+createCorner(closeBtn, 6)
+
+-- Content Frame
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "Content"
+contentFrame.Size = UDim2.new(1, -20, 1, -50)
+contentFrame.Position = UDim2.new(0, 10, 0, 45)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+-- ========== ส่วน Input & Controls ==========
+-- Song ID Input
+local inputFrame = Instance.new("Frame")
+inputFrame.Size = UDim2.new(1, 0, 0, 35)
+inputFrame.BackgroundColor3 = CONFIG.THEME.SECONDARY
+inputFrame.BorderSizePixel = 0
+inputFrame.Parent = contentFrame
+createCorner(inputFrame, 6)
+
+local songInput = Instance.new("TextBox")
+songInput.Size = UDim2.new(1, -70, 1, 0)
+songInput.Position = UDim2.new(0, 10, 0, 0)
+songInput.BackgroundTransparency = 1
+songInput.Text = "ใส่ ID เพลง หรือ ชื่อเพลง..."
+songInput.TextColor3 = CONFIG.THEME.TEXT_DIM
+songInput.TextSize = 13
+songInput.Font = Enum.Font.Gotham
+songInput.ClearTextOnFocus = false
+songInput.Parent = inputFrame
+
+local addBtn = Instance.new("TextButton")
+addBtn.Size = UDim2.new(0, 50, 0, 25)
+addBtn.Position = UDim2.new(1, -60, 0.5, -12)
+addBtn.BackgroundColor3 = CONFIG.THEME.ACCENT
+addBtn.Text = "➕"
+addBtn.TextColor3 = CONFIG.THEME.TEXT
+addBtn.TextSize = 14
+addBtn.Font = Enum.Font.GothamBold
+addBtn.Parent = inputFrame
+createCorner(addBtn, 4)
+
+-- Now Playing
+local nowPlayingLabel = Instance.new("TextLabel")
+nowPlayingLabel.Size = UDim2.new(1, 0, 0, 20)
+nowPlayingLabel.Position = UDim2.new(0, 0, 0, 40)
+nowPlayingLabel.BackgroundTransparency = 1
+nowPlayingLabel.Text = "🎶 กำลังเล่น: -"
+nowPlayingLabel.TextColor3 = CONFIG.THEME.ACCENT
+nowPlayingLabel.TextSize = 12
+nowPlayingLabel.Font = Enum.Font.GothamBold
+nowPlayingLabel.TextTruncate = Enum.TextTruncate.AtEnd
+nowPlayingLabel.Parent = contentFrame
+
+-- Control Buttons
+local controlsFrame = Instance.new("Frame")
+controlsFrame.Size = UDim2.new(1, 0, 0, 35)
+controlsFrame.Position = UDim2.new(0, 0, 0, 65)
+controlsFrame.BackgroundTransparency = 1
+controlsFrame.Parent = contentFrame
+
+local btnSize = UDim2.new(0, 50, 0, 30)
+local btnY = UDim2.new(0, 0, 0.5, -15)
+
+-- Play/Pause
+local playBtn = Instance.new("TextButton")
+playBtn.Size = btnSize
+playBtn.Position = UDim2.new(0.5, -25, 0.5, -15)
+playBtn.BackgroundColor3 = CONFIG.THEME.ACCENT
+playBtn.Text = "▶️ เล่น"
+playBtn.TextColor3 = CONFIG.THEME.TEXT
+playBtn.TextSize = 12
+playBtn.Font = Enum.Font.GothamBold
+playBtn.Parent = controlsFrame
+createCorner(playBtn, 6)
+
+-- Previous
+local prevBtn = Instance.new("TextButton")
+prevBtn.Size = btnSize
+prevBtn.Position = UDim2.new(0.5, -85, 0.5, -15)
+prevBtn.BackgroundColor3 = CONFIG.THEME.SECONDARY
+prevBtn.Text = "⏮️"
+prevBtn.TextColor3 = CONFIG.THEME.TEXT
+prevBtn.TextSize = 14
+prevBtn.Font = Enum.Font.GothamBold
+prevBtn.Parent = controlsFrame
+createCorner(prevBtn, 6)
+
+-- Next
+local nextBtn = Instance.new("TextButton")
+nextBtn.Size = btnSize
+nextBtn.Position = UDim2.new(0.5, 35, 0.5, -15)
+nextBtn.BackgroundColor3 = CONFIG.THEME.SECONDARY
+nextBtn.Text = "⏭️"
+nextBtn.TextColor3 = CONFIG.THEME.TEXT
+nextBtn.TextSize = 14
+nextBtn.Font = Enum.Font.GothamBold
+nextBtn.Parent = controlsFrame
+createCorner(nextBtn, 6)
+
+-- Loop
+local loopBtn = Instance.new("TextButton")
+loopBtn.Size = UDim2.new(0, 40, 0, 30)
+loopBtn.Position = UDim2.new(0, 0, 0.5, -15)
+loopBtn.BackgroundColor3 = CONFIG.THEME.SECONDARY
+loopBtn.Text = "🔁"
+loopBtn.TextColor3 = CONFIG.THEME.TEXT_DIM
+loopBtn.TextSize = 14
+loopBtn.Font = Enum.Font.GothamBold
+loopBtn.Parent = controlsFrame
+createCorner(loopBtn, 6)
+
+-- Shuffle
+local shuffleBtn = Instance.new("TextButton")
+shuffleBtn.Size = UDim2.new(0, 40, 0, 30)
+shuffleBtn.Position = UDim2.new(1, -40, 0.5, -15)
+shuffleBtn.BackgroundColor3 = CONFIG.THEME.SECONDARY
+shuffleBtn.Text = "🔀"
+shuffleBtn.TextColor3 = CONFIG.THEME.TEXT_DIM
+shuffleBtn.TextSize = 14
+shuffleBtn.Font = Enum.Font.GothamBold
+shuffleBtn.Parent = controlsFrame
+createCorner(shuffleBtn, 6)
+
+-- Volume Slider
+local volFrame = Instance.new("Frame")
+volFrame.Size = UDim2.new(1, 0, 0, 25)
+volFrame.Position = UDim2.new(0, 0, 0, 105)
+volFrame.BackgroundTransparency = 1
+volFrame.Parent = contentFrame
+
+local volLabel = Instance.new("TextLabel")
+volLabel.Size = UDim2.new(0, 50, 1, 0)
+volLabel.BackgroundTransparency = 1
+volLabel.Text = "🔊 100%"
+volLabel.TextColor3 = CONFIG.THEME.TEXT_DIM
+volLabel.TextSize = 11
+volLabel.Font = Enum.Font.Gotham
+volLabel.Parent = volFrame
+
+local volBar = Instance.new("Frame")
+volBar.Size = UDim2.new(1, -60, 0, 6)
+volBar.Position = UDim2.new(0, 55, 0.5, -3)
+volBar.BackgroundColor3 = CONFIG.THEME.SECONDARY
+volBar.BorderSizePixel = 0
+volBar.Parent = volFrame
+createCorner(volBar, 3)
+
+local volFill = Instance.new("Frame")
+volFill.Size = UDim2.new(1, 0, 1, 0)
+volFill.BackgroundColor3 = CONFIG.THEME.ACCENT
+volFill.BorderSizePixel = 0
+volFill.Parent = volBar
+createCorner(volFill, 3)
+
+-- ========== Tabs ==========
+local tabsFrame = Instance.new("Frame")
+tabsFrame.Size = UDim2.new(1, 0, 0, 30)
+tabsFrame.Position = UDim2.new(0, 0, 0, 135)
+tabsFrame.BackgroundTransparency = 1
+tabsFrame.Parent = contentFrame
+
+local tabPlaylist = Instance.new("TextButton")
+tabPlaylist.Size = UDim2.new(0.33, -3, 1, 0)
+tabPlaylist.BackgroundColor3 = CONFIG.THEME.ACCENT
+tabPlaylist.Text = "📋 Playlist"
+tabPlaylist.TextColor3 = CONFIG.THEME.TEXT
+tabPlaylist.TextSize = 11
+tabPlaylist.Font = Enum.Font.GothamBold
+tabPlaylist.Parent = tabsFrame
+createCorner(tabPlaylist, 4)
+
+local tabHistory = Instance.new("TextButton")
+tabHistory.Size = UDim2.new(0.33, -3, 1, 0)
+tabHistory.Position = UDim2.new(0.33, 1.5, 0, 0)
+tabHistory.BackgroundColor3 = CONFIG.THEME.SECONDARY
+tabHistory.Text = "📜 ประวัติ"
+tabHistory.TextColor3 = CONFIG.THEME.TEXT_DIM
+tabHistory.TextSize = 11
+tabHistory.Font = Enum.Font.GothamBold
+tabHistory.Parent = tabsFrame
+createCorner(tabHistory, 4)
+
+local tabFav = Instance.new("TextButton")
+tabFav.Size = UDim2.new(0.33, -3, 1, 0)
+tabFav.Position = UDim2.new(0.66, 3, 0, 0)
+tabFav.BackgroundColor3 = CONFIG.THEME.SECONDARY
+tabFav.Text = "⭐ โปรด"
+tabFav.TextColor3 = CONFIG.THEME.TEXT_DIM
+tabFav.TextSize = 11
+tabFav.Font = Enum.Font.GothamBold
+tabFav.Parent = tabsFrame
+createCorner(tabFav, 4)
+
+-- ========== Scrolling Lists ==========
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(1, 0, 1, -170)
+listFrame.Position = UDim2.new(0, 0, 0, 170)
+listFrame.BackgroundColor3 = CONFIG.THEME.SECONDARY
+listFrame.BorderSizePixel = 0
+listFrame.Parent = contentFrame
+createCorner(listFrame, 8)
+
+local scrollingList = Instance.new("ScrollingFrame")
+scrollingList.Size = UDim2.new(1, -10, 1, -10)
+scrollingList.Position = UDim2.new(0, 5, 0, 5)
+scrollingList.BackgroundTransparency = 1
+scrollingList.ScrollBarThickness = 4
+scrollingList.ScrollBarImageColor3 = CONFIG.THEME.ACCENT
+scrollingList.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollingList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scrollingList.Parent = listFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = scrollingList
+
+-- Empty State
+local emptyLabel = Instance.new("TextLabel")
+emptyLabel.Size = UDim2.new(1, 0, 0, 30)
+emptyLabel.BackgroundTransparency = 1
+emptyLabel.Text = "ยังไม่มีเพลงในรายการ"
+emptyLabel.TextColor3 = CONFIG.THEME.TEXT_DIM
+emptyLabel.TextSize = 12
+emptyLabel.Font = Enum.Font.Gotham
+emptyLabel.Parent = scrollingList
+
+-- ========== Toggle Button (Floating) ==========
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleBtn"
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0, 20, 0, 20)
+toggleBtn.BackgroundColor3 = CONFIG.THEME.ACCENT
+toggleBtn.Text = "🎵"
+toggleBtn.TextSize = 24
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Parent = screenGui
+createCorner(toggleBtn, 25)
+createStroke(toggleBtn, Color3.fromRGB(255,255,255), 2)
+
+local toggleShadow = Instance.new("ImageLabel")
+toggleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleShadow.BackgroundTransparency = 1
+toggleShadow.Position = UDim2.new(0.5, 0, 0.5, 3)
+toggleShadow.Size = UDim2.new(1, 20, 1, 20)
+toggleShadow.ZIndex = -1
+toggleShadow.Image = "rbxassetid://1316045217"
+toggleShadow.ImageColor3 = Color3.fromRGB(0,0,0)
+toggleShadow.ImageTransparency = 0.5
+toggleShadow.ScaleType = Enum.ScaleType.Slice
+toggleShadow.SliceCenter = Rect.new(10,10,118,118)
+toggleShadow.Parent = toggleBtn
+
+-- ========== Mini Player ==========
+local miniPlayer = Instance.new("Frame")
+miniPlayer.Name = "MiniPlayer"
+miniPlayer.Size = UDim2.new(0, 200, 0, 50)
+miniPlayer.Position = UDim2.new(0.5, -100, 1, -60)
+miniPlayer.BackgroundColor3 = CONFIG.THEME.BG
+miniPlayer.BorderSizePixel = 0
+miniPlayer.Visible = false
+miniPlayer.Parent = screenGui
+createCorner(miniPlayer, 10)
+createStroke(miniPlayer, CONFIG.THEME.ACCENT, 1)
+
+local miniText = Instance.new("TextLabel")
+miniText.Size = UDim2.new(1, -50, 1, 0)
+miniText.Position = UDim2.new(0, 10, 0, 0)
+miniText.BackgroundTransparency = 1
+miniText.Text = "🎵 -"
+miniText.TextColor3 = CONFIG.THEME.TEXT
+miniText.TextSize = 12
+miniText.Font = Enum.Font.GothamBold
+miniText.TextTruncate = Enum.TextTruncate.AtEnd
+miniText.TextXAlignment = Enum.TextXAlignment.Left
+miniText.Parent = miniPlayer
+
+local miniPlayBtn = Instance.new("TextButton")
+miniPlayBtn.Size = UDim2.new(0, 30, 0, 30)
+miniPlayBtn.Position = UDim2.new(1, -40, 0.5, -15)
+miniPlayBtn.BackgroundColor3 = CONFIG.THEME.ACCENT
+miniPlayBtn.Text = "▶"
+miniPlayBtn.TextColor3 = CONFIG.THEME.TEXT
+miniPlayBtn.TextSize = 14
+miniPlayBtn.Font = Enum.Font.GothamBold
+miniPlayBtn.Parent = miniPlayer
+createCorner(miniPlayBtn, 6)
+
+-- ========== Functions ==========
+local currentTab = "playlist"
+
+local function updateList()
+    -- Clear list
+    for _, child in ipairs(scrollingList:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
+    local source = {}
+    if currentTab == "playlist" then
+        source = Data.playlist
+    elseif currentTab == "history" then
+        source = Data.history
+    elseif currentTab == "favorites" then
+        for _, song in ipairs(Data.playlist) do
+            if Data.favorites[song.id] then
+                table.insert(source, song)
+            end
+        end
+    end
+
+    if #source == 0 then
+        emptyLabel.Visible = true
+        emptyLabel.Text = currentTab == "playlist" and "ยังไม่มีเพลงในรายการ" 
+            or currentTab == "history" and "ยังไม่มีประวัติ" 
+            or "ยังไม่มีเพลงโปรด"
+        scrollingList.CanvasSize = UDim2.new(0, 0, 0, 30)
+        return
+    end
+
+    emptyLabel.Visible = false
+
+    for i, song in ipairs(source) do
+        local item = Instance.new("Frame")
+        item.Size = UDim2.new(1, 0, 0, 35)
+        item.BackgroundColor3 = CONFIG.THEME.BG
+        item.BorderSizePixel = 0
+        item.Parent = scrollingList
+        createCorner(item, 6)
+
+        local itemText = Instance.new("TextLabel")
+        itemText.Size = UDim2.new(1, -80, 1, 0)
+        itemText.Position = UDim2.new(0, 8, 0, 0)
+        itemText.BackgroundTransparency = 1
+        itemText.Text = song.name
+        itemText.TextColor3 = CONFIG.THEME.TEXT
+        itemText.TextSize = 11
+        itemText.Font = Enum.Font.Gotham
+        itemText.TextTruncate = Enum.TextTruncate.AtEnd
+        itemText.TextXAlignment = Enum.TextXAlignment.Left
+        itemText.Parent = item
+
+        -- Play button in item
+        local itemPlay = Instance.new("TextButton")
+        itemPlay.Size = UDim2.new(0, 30, 0, 22)
+        itemPlay.Position = UDim2.new(1, -70, 0.5, -11)
+        itemPlay.BackgroundColor3 = CONFIG.THEME.ACCENT
+        itemPlay.Text = "▶"
+        itemPlay.TextColor3 = CONFIG.THEME.TEXT
+        itemPlay.TextSize = 12
+        itemPlay.Font = Enum.Font.GothamBold
+        itemPlay.Parent = item
+        createCorner(itemPlay, 4)
+
+        -- Favorite button
+        local itemFav = Instance.new("TextButton")
+        itemFav.Size = UDim2.new(0, 30, 0, 22)
+        itemFav.Position = UDim2.new(1, -35, 0.5, -11)
+        itemFav.BackgroundColor3 = CONFIG.THEME.SECONDARY
+        itemFav.Text = Data.favorites[song.id] and "★" or "☆"
+        itemFav.TextColor3 = Data.favorites[song.id] and CONFIG.THEME.WARNING or CONFIG.THEME.TEXT_DIM
+        itemFav.TextSize = 14
+        itemFav.Font = Enum.Font.GothamBold
+        itemFav.Parent = item
+        createCorner(itemFav, 4)
+
+        -- Hover effect
+        item.MouseEnter:Connect(function()
+            tween(item, {BackgroundColor3 = Color3.fromRGB(40, 40, 50)}, 0.2)
+        end)
+        item.MouseLeave:Connect(function()
+            tween(item, {BackgroundColor3 = CONFIG.THEME.BG}, 0.2)
+        end)
+
+        -- Play from list
+        itemPlay.MouseButton1Click:Connect(function()
+            playSong(song.id, song.name)
+        end)
+
+        -- Toggle favorite
+        itemFav.MouseButton1Click:Connect(function()
+            Data.favorites[song.id] = not Data.favorites[song.id]
+            itemFav.Text = Data.favorites[song.id] and "★" or "☆"
+            itemFav.TextColor3 = Data.favorites[song.id] and CONFIG.THEME.WARNING or CONFIG.THEME.TEXT_DIM
+            if currentTab == "favorites" then
+                updateList()
+            end
+        end)
+    end
+end
+
+local function addToPlaylist(id, name)
+    -- Check duplicate
+    for _, song in ipairs(Data.playlist) do
+        if song.id == id then return end
+    end
+    table.insert(Data.playlist, {id = id, name = name or "ID: " .. id})
+    if currentTab == "playlist" then
+        updateList()
+    end
+end
+
+local function addToHistory(id, name)
+    table.insert(Data.history, 1, {
+        id = id, 
+        name = name or "ID: " .. id, 
+        time = formatTime()
+    })
+    -- Keep only last 20
+    while #Data.history > 20 do
+        table.remove(Data.history)
+    end
+    if currentTab == "history" then
+        updateList()
+    end
+end
+
+function playSong(songId, knownName)
+    if not songId or songId == "" then return end
+    
+    Data.isPlaying = true
+    Data.currentSong = songId
+    playBtn.Text = "⏸️ หยุด"
+    
+    -- Update UI
+    local displayName = knownName or "ID: " .. songId
+    nowPlayingLabel.Text = "🎶 กำลังเล่น: " .. displayName
+    miniText.Text = "🎵 " .. displayName
+    miniPlayBtn.Text = "⏸"
+    
+    -- Send to server
+    sendToolEvent(songId)
+    
+    -- A
