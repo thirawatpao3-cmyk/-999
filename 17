@@ -1,0 +1,186 @@
+local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "MyGameMusicLogger"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 420, 0, 480) -- ขยายความสูงเพิ่มพื้นที่ให้ Search Bar
+frame.Position = UDim2.new(0.5, -210, 0.5, -240)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 45)
+title.BackgroundTransparency = 1
+title.Text = "🎵 MY GAME MUSIC LOGGER"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 20
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+-- ช่องค้นหา (Search Box)
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -20, 0, 35)
+searchBox.Position = UDim2.new(0, 10, 0, 50)
+searchBox.PlaceholderText = "🔍 ค้นหาชื่อเพลง หรือ ID..."
+searchBox.Text = ""
+searchBox.TextColor3 = Color3.new(1, 1, 1)
+searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+searchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+searchBox.TextSize = 14
+searchBox.Font = Enum.Font.Gotham
+searchBox.Parent = frame
+
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 8)
+
+local scan = Instance.new("TextButton")
+scan.Size = UDim2.new(1, -20, 0, 35)
+scan.Position = UDim2.new(0, 10, 0, 92)
+scan.Text = "🔎 สแกนเพลงใหม่"
+scan.TextSize = 15
+scan.Font = Enum.Font.GothamBold
+scan.TextColor3 = Color3.new(1, 1, 1)
+scan.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+scan.Parent = frame
+
+Instance.new("UICorner", scan).CornerRadius = UDim.new(0, 8)
+
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(1, -20, 1, -145)
+list.Position = UDim2.new(0, 10, 0, 135)
+list.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 6
+list.CanvasSize = UDim2.new(0, 0, 0, 0)
+list.Parent = frame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.Parent = list
+
+local function getId(soundId)
+    return tostring(soundId):match("%d+")
+end
+
+local scannedSounds = {}
+
+local function clear()
+    for _, child in ipairs(list:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+end
+
+local function addSoundEntry(name, id)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -10, 0, 55)
+    button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.TextWrapped = true
+    button.Text = name .. "\nID: " .. tostring(id)
+    button.Parent = list
+
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 7)
+
+    button.MouseButton1Click:Connect(function()
+        if id and setclipboard then
+            setclipboard(id)
+            button.Text = name .. "\nคัดลอก ID แล้ว: " .. id
+            task.delay(1.5, function()
+                if button.Parent then
+                    button.Text = name .. "\nID: " .. id
+                end
+            end)
+        end
+    end)
+end
+
+local function filterSounds(query)
+    query = query:lower()
+    for _, child in ipairs(list:GetChildren()) do
+        if child:IsA("TextButton") then
+            local text = child.Text:lower()
+            if query == "" or text:find(query) then
+                child.Visible = true
+            else
+                child.Visible = false
+            end
+        end
+    end
+end
+
+local function scanSounds()
+    clear()
+    scannedSounds = {}
+    local count = 0
+
+    local containers = {workspace, SoundService, ReplicatedStorage}
+
+    for _, container in ipairs(containers) do
+        for _, obj in ipairs(container:GetDescendants()) do
+            if obj:IsA("Sound") and obj.SoundId ~= "" then
+                local id = getId(obj.SoundId)
+                if id and not scannedSounds[id] then
+                    scannedSounds[id] = true
+                    count += 1
+                    addSoundEntry(obj.Name, id)
+                end
+            end
+        end
+    end
+
+    list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+
+    if count == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, -10, 0, 40)
+        empty.BackgroundTransparency = 1
+        empty.Text = "ไม่พบ Sound ในเกม"
+        empty.TextColor3 = Color3.new(1, 1, 1)
+        empty.TextSize = 16
+        empty.Parent = list
+    end
+    
+    filterSounds(searchBox.Text)
+end
+
+scan.MouseButton1Click:Connect(scanSounds)
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    filterSounds(searchBox.Text)
+end)
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- ดักจับเสียงที่เพิ่มเข้ามาใหม่แบบ Real-time
+local function onDescendantAdded(obj)
+    if obj:IsA("Sound") and obj.SoundId ~= "" then
+        local id = getId(obj.SoundId)
+        if id and not scannedSounds[id] then
+            scannedSounds[id] = true
+            addSoundEntry(obj.Name, id)
+        end
+    end
+end
+
+workspace.DescendantAdded:Connect(onDescendantAdded)
+SoundService.DescendantAdded:Connect(onDescendantAdded)
+ReplicatedStorage.DescendantAdded:Connect(onDescendantAdded)
+
+scanSounds()
