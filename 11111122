@@ -1,0 +1,54 @@
+-- โหลด WindUI Library
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/refs/heads/main/main_example.lua"))()
+
+-- สร้างหน้าต่าง UI หลัก
+local Window = WindUI:CreateWindow({
+    Title = "Freeze Character Panel",
+    Icon = "snowflake",
+    Author = "Player",
+    Folder = "WindUI_Freeze",
+    Size = UDim2.fromOffset(450, 300),
+    KeySystem = false
+})
+
+-- สร้าง Tab สำหรับใส่ฟังก์ชัน
+local Tab = Window:Tab({
+    Title = "Main",
+    Icon = "home"
+})
+
+-- ตัวแปรอ้างอิงตัวละคร
+local player = game.Players.LocalPlayer
+
+-- สร้าง Toggle สำหรับเปิด-ปิดการแช่แข็ง
+Tab:Toggle({
+    Title = "Freeze Character (แช่แข็งตัวละคร)",
+    Default = false,
+    Callback = function(state)
+        local character = player.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid then
+            if state then
+                -- เปิดใช้งานการแช่แข็ง
+                humanoid.WalkSpeed = 0
+                humanoid.JumpPower = 0
+                if rootPart then
+                    rootPart.Anchored = true -- ล็อกตำแหน่งไม่ให้ขยับหรือไหล
+                end
+                WindUI:Notify({ Title = "Freeze", Content = "ตัวละครถูกแช่แข็งแล้ว!", Duration = 2 })
+            else
+                -- ปิดการแช่แข็ง (คืนค่าปกติ)
+                if rootPart then
+                    rootPart.Anchored = false
+                end
+                humanoid.WalkSpeed = 16
+                humanoid.JumpPower = 50
+                WindUI:Notify({ Title = "Unfreeze", Content = "ปลดแช่แข็งตัวละครแล้ว", Duration = 2 })
+            end
+        end
+    end
+})
