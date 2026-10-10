@@ -1,0 +1,34 @@
+-- ตัวอย่างฟังก์ชัน Toggle แช่แข็งตัวละครใน Wind UI
+local player = game.Players.LocalPlayer
+
+Tab:Toggle({
+    Title = "แช่แข็งตัวละคร (Freeze Character)",
+    Default = false,
+    Callback = function(state)
+        local character = player.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid then
+            if state then
+                -- เปิดใช้งาน: ล็อกความเร็วและหยุดการเคลื่อนไหว
+                humanoid.WalkSpeed = 0
+                humanoid.JumpPower = 0
+                if rootPart then
+                    rootPart.Anchored = true
+                end
+                WindUI:Notify({ Title = "สถานะ", Content = "แช่แข็งตัวละครเรียบร้อย", Duration = 2 })
+            else
+                -- ปิดใช้งาน: คืนค่าการเคลื่อนไหวปกติ
+                if rootPart then
+                    rootPart.Anchored = false
+                end
+                humanoid.WalkSpeed = 16
+                humanoid.JumpPower = 50
+                WindUI:Notify({ Title = "สถานะ", Content = "ปลดแช่แข็งตัวละครแล้ว", Duration = 2 })
+            end
+        end
+    end
+})
