@@ -1,0 +1,150 @@
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- 1. Main ScreenGui
+local screenGui = script.Parent
+
+-- 2. Toggle Icon Button (ปุ่มกลมเปิด/ปิด UI หน้าจอ)
+local toggleIcon = Instance.new("TextButton")
+toggleIcon.Name = "ToggleIcon"
+toggleIcon.Size = UDim2.new(0, 50, 0, 50)
+toggleIcon.Position = UDim2.new(0.02, 0, 0.45, 0)
+toggleIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+toggleIcon.Text = "⚡"
+toggleIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleIcon.TextSize = 22
+toggleIcon.Font = Enum.Font.Garamond
+toggleIcon.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleIcon
+
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Color = Color3.fromRGB(80, 80, 100)
+toggleStroke.Thickness = 2
+toggleStroke.Parent = toggleIcon
+
+-- 3. Main Window Frame (หน้าต่างหลัก)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 320, 0, 220)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -110)
+mainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(60, 60, 80)
+mainStroke.Thickness = 1.5
+mainStroke.Parent = mainFrame
+
+-- 4. Title Bar
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 0, 40)
+titleLabel.Position = UDim2.new(0, 15, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "✨ Control Panel"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- 5. Toggle Switch Frame (สวิตช์เปิด/ปิด 기능)
+local switchContainer = Instance.new("Frame")
+switchContainer.Size = UDim2.new(0.9, 0, 0, 50)
+switchContainer.Position = UDim2.new(0.05, 0, 0.35, 0)
+switchContainer.BackgroundColor3 = Color3.fromRGB(32, 32, 40)
+switchContainer.Parent = mainFrame
+
+local switchCorner = Instance.new("UICorner")
+switchCorner.CornerRadius = UDim.new(0, 8)
+switchCorner.Parent = switchContainer
+
+local switchLabel = Instance.new("TextLabel")
+switchLabel.Size = UDim2.new(0.6, 0, 1, 0)
+switchLabel.Position = UDim2.new(0, 12, 0, 0)
+switchLabel.BackgroundTransparency = 1
+switchLabel.Text = "Auto Feature"
+switchLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
+switchLabel.TextSize = 15
+switchLabel.Font = Enum.Font.GothamMedium
+switchLabel.TextXAlignment = Enum.TextXAlignment.Left
+switchLabel.Parent = switchContainer
+
+-- ปุ่มสวิตช์
+local switchBtn = Instance.new("TextButton")
+switchBtn.Size = UDim2.new(0, 50, 0, 26)
+switchBtn.Position = UDim2.new(1, -62, 0.5, -13)
+switchBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+switchBtn.Text = ""
+switchBtn.Parent = switchContainer
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(1, 0)
+btnCorner.Parent = switchBtn
+
+local dot = Instance.new("Frame")
+dot.Size = UDim2.new(0, 20, 0, 20)
+dot.Position = UDim2.new(0, 3, 0.5, -10)
+dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+dot.Parent = switchBtn
+
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = dot
+
+-- Status Text
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 25)
+statusLabel.Position = UDim2.new(0, 0, 0.75, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Status: OFF"
+statusLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.Parent = mainFrame
+
+----------------------------------------------------
+-- LOGIC & ANIMATIONS
+----------------------------------------------------
+local isToggled = false
+local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Function: เปิด/ปิด สวิตช์
+switchBtn.MouseButton1Click:Connect(function()
+	isToggled = not isToggled
+	
+	if isToggled then
+		TweenService:Create(dot, tweenInfo, {Position = UDim2.new(1, -23, 0.5, -10)}):Play()
+		TweenService:Create(switchBtn, tweenInfo, {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}):Play()
+		statusLabel.Text = "Status: ON"
+		statusLabel.TextColor3 = Color3.fromRGB(46, 204, 113)
+		
+		-- ใส่โค้ดทำงานตอน ON ตรงนี้
+		print("Feature Enabled!")
+	else
+		TweenService:Create(dot, tweenInfo, {Position = UDim2.new(0, 3, 0.5, -10)}):Play()
+		TweenService:Create(switchBtn, tweenInfo, {BackgroundColor3 = Color3.fromRGB(60, 60, 70)}):Play()
+		statusLabel.Text = "Status: OFF"
+		statusLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
+		
+		-- ใส่โค้ดทำงานตอน OFF ตรงนี้
+		print("Feature Disabled!")
+	end
+end)
+
+-- Function: ซ่อน/แสดง UI หน้าต่างหลัก
+local uiVisible = true
+toggleIcon.MouseButton1Click:Connect(function()
+	uiVisible = not uiVisible
+	mainFrame.Visible = uiVisible
+end)
