@@ -1,0 +1,109 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local player = Players.LocalPlayer
+
+-- ป้องกันเปิดซ้ำซ้อน
+if CoreGui:FindFirstChild("FreezeUI") then
+    CoreGui.FreezeUI:Destroy()
+end
+
+-- สร้าง ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FreezeUI"
+screenGui.Parent = CoreGui
+screenGui.ResetOnSpawn = false
+
+-- สร้างกรอบหลัก (Main Frame) ดีไซน์สวยงาม
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 110)
+mainFrame.Position = UDim2.new(0.5, -110, 0.1, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true -- ทำให้ลากขยับหน้าต่างได้
+mainFrame.Parent = screenGui
+
+-- ทำมุมโค้งให้ Main Frame
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+-- เพิ่มเส้นขอบเรืองแสงบางๆ หรือเงาตกกระทบ (UIStroke)
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(80, 80, 120)
+uiStroke.Thickness = 1.5
+uiStroke.Parent = mainFrame
+
+-- หัวข้อหน้าต่าง (Title)
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🔒 Freeze Character"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = mainFrame
+
+-- ปุ่มเปิด-ปิด (Toggle Button)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 180, 0, 42)
+toggleBtn.Position = UDim2.new(0.5, -90, 0, 48)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50) -- สีแดงเริ่มต้น (OFF)
+toggleBtn.Text = "STATUS: OFF"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Parent = mainFrame
+
+-- ทำมุมโค้งให้ปุ่ม
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = toggleBtn
+
+-- ตัวแปรระบบล็อกตำแหน่ง
+local isFrozen = false
+local lockedCFrame = nil
+
+-- ฟังก์ชันล็อกตัวละคร
+RunService.Heartbeat:Connect(function()
+    if isFrozen and player.Character then
+        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            if not lockedCFrame then
+                lockedCFrame = rootPart.CFrame
+            end
+            -- ล็อกตำแหน่งและล้างแรงส่ง (Velocity) ไม่ให้ขยับหรือไหล
+            rootPart.CFrame = lockedCFrame
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- กดปุ่มเพื่อสลับสถานะ ON / OFF
+toggleBtn.MouseButton1Click:Connect(function()
+    isFrozen = not isFrozen
+    
+    if isFrozen then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            lockedCFrame = player.Character.HumanoidRootPart.CFrame
+        end
+        toggleBtn.Text = "STATUS: ON"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 205, 50) -- เปลี่ยนเป็นสีเขียว
+    else
+        lockedCFrame = nil
+        toggleBtn.Text = "STATUS: OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50) -- กลับเป็นสีแดง
+    end
+end)
+
+-- รีเซ็ตสถานะเมื่อตัวละครตาย
+player.CharacterAdded:Connect(function()
+    isFrozen = false
+    lockedCFrame = `nil`
+    toggleBtn.Text = "STATUS: OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+end)
