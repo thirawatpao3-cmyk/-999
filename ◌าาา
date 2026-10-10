@@ -1,0 +1,83 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- State variables
+local isFrozen = false
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DiscordFreezeGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Main Frame (Discord Dark Theme)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 240, 0, 140)
+mainFrame.Position = UDim2.new(0.5, -120, 0.5, -70)
+mainFrame.BackgroundColor3 = Color3.fromRGB(43, 45, 49) -- Discord dark grey
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Title Bar
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Text = "  ❄️ Freeze Control"
+titleLabel.TextColor3 = Color3.fromRGB(242, 243, 245)
+titleLabel.TextSize = 14
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- Toggle Button (Discord Style)
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(1, -24, 0, 44)
+toggleButton.Position = UDim2.new(0, 12, 0, 60)
+toggleButton.BackgroundColor3 = Color3.fromRGB(35, 36, 40)
+toggleButton.Font = Enum.Font.GothamSemibold
+toggleButton.Text = "Status: OFF"
+toggleButton.TextColor3 = Color3.fromRGB(237, 66, 69) -- Red for off
+toggleButton.TextSize = 14
+toggleButton.Parent = mainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = toggleButton
+
+-- Toggle Functionality
+toggleButton.MouseButton1Click:Connect(function()
+    isFrozen = not isFrozen
+    
+    if isFrozen then
+        humanoidRootPart.Anchored = true
+        toggleButton.Text = "Status: FROZEN"
+        toggleButton.TextColor3 = Color3.fromRGB(87, 242, 135) -- Discord green for active
+        toggleButton.BackgroundColor3 = Color3.fromRGB(47, 49, 54)
+    else
+        humanoidRootPart.Anchored = false
+        toggleButton.Text = "Status: OFF"
+        toggleButton.TextColor3 = Color3.fromRGB(237, 66, 69)
+        toggleButton.BackgroundColor3 = Color3.fromRGB(35, 36, 40)
+    end
+end)
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    isFrozen = false
+    humanoidRootPart.Anchored = false
+    toggleButton.Text = "Status: OFF"
+    toggleButton.TextColor3 = Color3.fromRGB(237, 66, 69)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(35, 36, 40)
+end)
